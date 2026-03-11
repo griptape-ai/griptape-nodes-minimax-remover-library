@@ -1,14 +1,15 @@
 [project]
-name = "example_nodes_template"
+name = "griptape-nodes-minimax-remover-library"
 version = "0.1.0"
-description = "Template for Users to create Custom Libraries and Nodes"
+description = "MiniMax-Remover integration for Griptape Nodes - AI-powered video object removal"
 authors = [
-    {name = "Your Name",email = "you@example.com"}
+    {name = "Your Name", email = "you@example.com"}
 ]
 readme = "README.md"
 requires-python = "~=3.12"
 dependencies = [
     "griptape-nodes",
+    "pygit2",
 ]
 
 [tool.uv.sources]
