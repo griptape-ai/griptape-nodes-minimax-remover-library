@@ -12,7 +12,6 @@ import numpy as np
 import torch
 from diffusers import AutoencoderKLWan, UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_video
-from diffusers_nodes_library.common.utils.torch_utils import get_best_device
 from griptape.artifacts import VideoUrlArtifact
 from PIL import Image
 
@@ -27,6 +26,16 @@ from griptape_nodes.files.file import File
 from griptape_nodes.traits.slider import Slider
 
 logger = logging.getLogger(__name__)
+
+
+def get_best_device() -> torch.device:
+    """Get the best available device (CUDA, MPS, or CPU)."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
 
 
 class MinimaxRemoverVideoNodeParameters:
