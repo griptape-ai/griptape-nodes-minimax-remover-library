@@ -125,18 +125,15 @@ class MinimaxRemoverVideoNodeParameters:
         dtype = torch.float16
 
         try:
-            # Import custom modules (node should have added submodule to sys.path)
-            logger.info("Importing custom MiniMax-Remover modules...")
-            try:
-                from transformer_minimax_remover import Transformer3DModel
-                from pipeline_minimax_remover import Minimax_Remover_Pipeline
-            except ImportError as e:
-                error_msg = (
-                    f"Failed to import MiniMax-Remover custom modules: {e}. "
-                    "Ensure the git submodule is initialized and added to sys.path."
-                )
-                logger.error(error_msg)
-                raise RuntimeError(error_msg) from e
+            # Add submodule to sys.path at execution time
+            # LibraryImportContext isolates sys.path, so we must add it here
+            minimax_repo_path = str(Path(__file__).parent / "_minimax_remover_repo")
+            if minimax_repo_path not in sys.path:
+                sys.path.insert(0, minimax_repo_path)
+
+            # Import custom modules from submodule
+            from transformer_minimax_remover import Transformer3DModel
+            from pipeline_minimax_remover import Minimax_Remover_Pipeline
 
             # Load model components from HuggingFace
             # diffusers from_pretrained() handles downloading and caching automatically

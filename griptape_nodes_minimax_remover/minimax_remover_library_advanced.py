@@ -1,7 +1,6 @@
 """MiniMax-Remover Library Advanced - Handles installation and setup for MiniMax-Remover dependencies"""
 
 import logging
-import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -9,7 +8,6 @@ import pygit2
 
 from griptape_nodes.node_library.advanced_node_library import AdvancedNodeLibrary
 from griptape_nodes.node_library.library_registry import Library, LibrarySchema
-from griptape_nodes.retained_mode.griptape_nodes import GriptapeNodes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("minimax_remover_library")
@@ -44,25 +42,26 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
     def _check_dependencies_installed(self) -> bool:
         """Check if core dependencies are installed."""
         try:
-            # Check torch (the main dependency that often fails)
+            # Check pip-installed packages
             torch_version = version("torch")
             logger.debug(f"Found torch {torch_version}")
 
-            # Check diffusers
             diffusers_version = version("diffusers")
             logger.debug(f"Found diffusers {diffusers_version}")
 
-            # Check other key dependencies
-            try:
-                import decord
-                logger.debug(f"Found decord")
-            except ImportError:
-                logger.debug("decord not found")
+            import decord
+            logger.debug("Found decord")
+
+            # Check if submodule is initialized
+            library_root = self._get_library_root()
+            minimax_submodule_dir = library_root / "_minimax_remover_repo"
+            if not minimax_submodule_dir.exists() or not any(minimax_submodule_dir.iterdir()):
+                logger.debug("Submodule not initialized")
                 return False
 
             return True
 
-        except PackageNotFoundError as e:
+        except (PackageNotFoundError, ImportError) as e:
             logger.debug(f"Dependency not found: {e}")
             return False
 
@@ -74,6 +73,7 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
         """
         try:
             self._init_minimax_remover_submodule()
+            logger.info("MiniMax-Remover submodule initialized successfully")
 
         except Exception as e:
             error_msg = f"Failed to initialize MiniMax-Remover: {str(e)}"
@@ -83,28 +83,6 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
     def _get_library_root(self) -> Path:
         """Get the library root directory (where .venv lives)."""
         return Path(__file__).parent
-
-    def _get_venv_python_path(self) -> Path:
-        """Get the Python executable path from the library's venv.
-
-        Returns the path to the venv's Python executable, which differs between
-        Windows (Scripts/python.exe) and Unix (bin/python).
-        """
-        venv_path = self._get_library_root() / ".venv"
-
-        if GriptapeNodes.OSManager().is_windows():
-            venv_python_path = venv_path / "Scripts" / "python.exe"
-        else:
-            venv_python_path = venv_path / "bin" / "python"
-
-        if not venv_python_path.exists():
-            raise RuntimeError(
-                f"Library venv Python not found at {venv_python_path}. "
-                "The library venv must be initialized before loading."
-            )
-
-        logger.debug(f"Python executable found at: {venv_python_path}")
-        return venv_python_path
 
     def _update_submodules_recursive(self, repo_path: Path) -> None:
         """Recursively update and initialize all submodules.
