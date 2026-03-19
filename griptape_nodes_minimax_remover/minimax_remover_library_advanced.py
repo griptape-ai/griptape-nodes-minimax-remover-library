@@ -1,6 +1,8 @@
 """MiniMax-Remover Library Advanced - Handles installation and setup for MiniMax-Remover dependencies"""
 
 import logging
+import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import pygit2
@@ -19,27 +21,73 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
     def before_library_nodes_loaded(self, library_data: LibrarySchema, library: Library) -> None:
         """Called before any nodes are loaded from the library.
 
-        This method handles the initialization of the MiniMax-Remover git submodule.
+        This method handles dependency installation and submodule initialization.
         """
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
 
-        # Check if submodule is already initialized
-        if self._check_submodule_initialized():
-            logger.info("MiniMax-Remover submodule already initialized, skipping initialization")
+        # Check if all dependencies are properly installed
+        if self._check_dependencies_installed():
+            logger.info("All MiniMax-Remover dependencies are already installed, skipping installation")
             return
 
-        logger.info("MiniMax-Remover submodule not found, beginning initialization...")
+        logger.info("MiniMax-Remover dependencies or submodule not found, beginning installation process...")
 
-        # Initialize submodule
-        self._init_minimax_remover_submodule()
-
-        logger.info("MiniMax-Remover submodule initialization completed successfully!")
+        # Install dependencies and initialize submodule
+        self._install_minimax_dependencies()
 
     def after_library_nodes_loaded(self, library_data: LibrarySchema, library: Library) -> None:
         """Called after all nodes have been loaded from the library."""
         msg = f"Finished loading nodes for '{library_data.name}' library"
         logger.info(msg)
+
+    def _check_dependencies_installed(self) -> bool:
+        """Check if core dependencies are installed."""
+        try:
+            # Check torch (the main dependency that often fails)
+            torch_version = version("torch")
+            logger.debug(f"Found torch {torch_version}")
+
+            # Check diffusers
+            diffusers_version = version("diffusers")
+            logger.debug(f"Found diffusers {diffusers_version}")
+
+            # Check other key dependencies
+            try:
+                import decord
+                logger.debug(f"Found decord")
+            except ImportError:
+                logger.debug("decord not found")
+                return False
+
+            return True
+
+        except PackageNotFoundError as e:
+            logger.debug(f"Dependency not found: {e}")
+            return False
+
+    def _install_minimax_dependencies(self) -> None:
+        """Initialize MiniMax-Remover submodule.
+
+        Note: Dependencies like torch are installed via UV using the JSON file.
+        This method only handles submodule initialization.
+        """
+        try:
+            logger.info("=" * 80)
+            logger.info("Initializing MiniMax-Remover Library...")
+            logger.info("=" * 80)
+
+            # Initialize MiniMax-Remover submodule
+            logger.info("Initializing MiniMax-Remover submodule...")
+            self._init_minimax_remover_submodule()
+
+            logger.info("MiniMax-Remover initialization completed successfully!")
+            logger.info("=" * 80)
+
+        except Exception as e:
+            error_msg = f"Failed to initialize MiniMax-Remover: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise RuntimeError(error_msg) from e
 
     def _get_library_root(self) -> Path:
         """Get the library root directory (where .venv lives)."""
@@ -67,29 +115,6 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
         logger.debug(f"Python executable found at: {venv_python_path}")
         return venv_python_path
 
-    def _check_submodule_initialized(self) -> bool:
-        """Check if the MiniMax-Remover submodule is initialized (has contents)."""
-        library_root = self._get_library_root()
-        minimax_submodule_dir = library_root / "_minimax_remover_repo"
-
-        # Check if submodule directory exists and has contents
-        if minimax_submodule_dir.exists() and any(minimax_submodule_dir.iterdir()):
-            # Verify required files exist
-            required_files = [
-                minimax_submodule_dir / "pipeline_minimax_remover.py",
-                minimax_submodule_dir / "transformer_minimax_remover.py"
-            ]
-
-            if all(f.exists() for f in required_files):
-                logger.debug(f"MiniMax-Remover submodule found at {minimax_submodule_dir}")
-                return True
-            else:
-                logger.warning(f"Submodule directory exists but missing required files")
-                return False
-
-        logger.debug("MiniMax-Remover submodule not initialized")
-        return False
-
     def _update_submodules_recursive(self, repo_path: Path) -> None:
         """Recursively update and initialize all submodules.
 
@@ -112,38 +137,16 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
 
         # Check if submodule is already initialized (has contents)
         if minimax_submodule_dir.exists() and any(minimax_submodule_dir.iterdir()):
-            logger.info(f"Submodule already exists at {minimax_submodule_dir}")
             return minimax_submodule_dir
 
         # Initialize submodule using pygit2 (recursive)
-        logger.info("Initializing MiniMax-Remover submodule using pygit2...")
         git_repo_root = library_root.parent
-
-        try:
-            self._update_submodules_recursive(git_repo_root)
-        except Exception as e:
-            error_msg = f"Failed to initialize submodule: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            raise RuntimeError(error_msg) from e
+        self._update_submodules_recursive(git_repo_root)
 
         # Verify submodule was initialized
         if not minimax_submodule_dir.exists() or not any(minimax_submodule_dir.iterdir()):
             raise RuntimeError(
-                f"Submodule initialization failed: {minimax_submodule_dir} is empty or does not exist. "
-                "Please ensure .gitmodules is configured correctly and git is available."
+                f"Submodule initialization failed: {minimax_submodule_dir} is empty or does not exist"
             )
 
-        # Verify required files exist
-        required_files = [
-            minimax_submodule_dir / "pipeline_minimax_remover.py",
-            minimax_submodule_dir / "transformer_minimax_remover.py"
-        ]
-
-        missing_files = [f.name for f in required_files if not f.exists()]
-        if missing_files:
-            raise RuntimeError(
-                f"Submodule initialized but missing required files: {', '.join(missing_files)}"
-            )
-
-        logger.info(f"Submodule successfully initialized at {minimax_submodule_dir}")
         return minimax_submodule_dir
