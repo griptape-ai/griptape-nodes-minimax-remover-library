@@ -5,7 +5,6 @@ import logging
 import sys
 import tempfile
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Union
 
@@ -13,7 +12,6 @@ import numpy as np
 import torch
 from diffusers import AutoencoderKLWan, UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_video
-from diffusers_nodes_library.common.utils.torch_utils import get_best_device
 from griptape.artifacts import VideoUrlArtifact
 from PIL import Image
 
@@ -23,11 +21,21 @@ from griptape_nodes.exe_types.param_components.huggingface.huggingface_repo_para
     HuggingFaceRepoParameter,
 )
 from griptape_nodes.exe_types.param_components.log_parameter import LogParameter
+from griptape_nodes.exe_types.param_components.project_file_parameter import ProjectFileParameter
 from griptape_nodes.files.file import File
-from griptape_nodes.retained_mode.griptape_nodes import GriptapeNodes
 from griptape_nodes.traits.slider import Slider
 
 logger = logging.getLogger(__name__)
+
+
+def get_best_device() -> torch.device:
+    """Get the best available device (CUDA, MPS, or CPU)."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
 
 
 class MinimaxRemoverVideoNodeParameters:
@@ -117,18 +125,15 @@ class MinimaxRemoverVideoNodeParameters:
         dtype = torch.float16
 
         try:
-            # Import custom modules (node should have added submodule to sys.path)
-            logger.info("Importing custom MiniMax-Remover modules...")
-            try:
-                from transformer_minimax_remover import Transformer3DModel
-                from pipeline_minimax_remover import Minimax_Remover_Pipeline
-            except ImportError as e:
-                error_msg = (
-                    f"Failed to import MiniMax-Remover custom modules: {e}. "
-                    "Ensure the git submodule is initialized and added to sys.path."
-                )
-                logger.error(error_msg)
-                raise RuntimeError(error_msg) from e
+            # Add submodule to sys.path at execution time
+            # LibraryImportContext isolates sys.path, so we must add it here
+            minimax_repo_path = str(Path(__file__).parent / "_minimax_remover_repo")
+            if minimax_repo_path not in sys.path:
+                sys.path.insert(0, minimax_repo_path)
+
+            # Import custom modules from submodule
+            from transformer_minimax_remover import Transformer3DModel
+            from pipeline_minimax_remover import Minimax_Remover_Pipeline
 
             # Load model components from HuggingFace
             # diffusers from_pretrained() handles downloading and caching automatically
@@ -232,6 +237,13 @@ class MinimaxRemoverVideoNode(ControlNode):
 
         # Add logs output parameter
         self.log_params.add_output_parameters()
+
+        self._output_file = ProjectFileParameter(
+            node=self,
+            name="output_file",
+            default_filename="minimax_removal.mp4",
+        )
+        self._output_file.add_parameter()
 
     def _ensure_minimax_modules_available(self):
         """Add _minimax_remover_repo to sys.path for lazy imports.
@@ -398,12 +410,9 @@ class MinimaxRemoverVideoNode(ControlNode):
                 # export_to_video handles numpy array [f, h, w, c] in range [0, 1]
                 export_to_video(result, str(export_path), fps=16)
 
-                # Publish to static files
-                filename = f"{uuid.uuid4()}{export_path.suffix}"
-                output_url = GriptapeNodes.StaticFilesManager().save_static_file(
-                    export_path.read_bytes(),
-                    filename
-                )
+                # Publish to project files
+                saved = self._output_file.build_file().write_bytes(export_path.read_bytes())
+                output_url = saved.location
 
                 # Create output artifact
                 output_artifact = VideoUrlArtifact(value=output_url)
