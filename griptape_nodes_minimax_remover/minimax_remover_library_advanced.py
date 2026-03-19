@@ -73,16 +73,7 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
         This method only handles submodule initialization.
         """
         try:
-            logger.info("=" * 80)
-            logger.info("Initializing MiniMax-Remover Library...")
-            logger.info("=" * 80)
-
-            # Initialize MiniMax-Remover submodule
-            logger.info("Initializing MiniMax-Remover submodule...")
             self._init_minimax_remover_submodule()
-
-            logger.info("MiniMax-Remover initialization completed successfully!")
-            logger.info("=" * 80)
 
         except Exception as e:
             error_msg = f"Failed to initialize MiniMax-Remover: {str(e)}"
