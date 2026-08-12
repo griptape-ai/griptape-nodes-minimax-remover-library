@@ -5,7 +5,7 @@
     "metadata": {
         "author": "Your Name",
         "description": "MiniMax-Remover integration for Griptape Nodes - AI-powered video object removal using diffusion models",
-        "library_version": "0.1.1",
+        "library_version": "0.2.0",
         "engine_version": "0.75.0",
         "tags": [
             "Griptape",
