@@ -9,7 +9,6 @@ readme = "README.md"
 requires-python = "~=3.12"
 dependencies = [
     "griptape-nodes",
-    "pygit2",
 ]
 
 [tool.uv.sources]
