@@ -44,11 +44,11 @@ uv sync
 If you haven't already installed your Griptape Nodes engine, follow the installation steps [HERE](https://github.com/griptape-ai/griptape-nodes).
 After you've completed those and you have your engine up and running:
 
-1. Copy the path to your `griptape_nodes_library.json` file within the `griptape_nodes_minimax_remover` directory. Right click on the file, and `Copy Path` (Not `Copy Relative Path`).
+1. Copy the path to your `griptape-nodes-library.json` file within the `griptape_nodes_minimax_remover` directory. Right click on the file, and `Copy Path` (Not `Copy Relative Path`).
 2. Start up the engine!
 3. Navigate to settings.
 4. Open your settings and go to the App Events tab. Add an item in **Libraries to Register**.
-5. Paste your copied `griptape_nodes_library.json` path from earlier into the new item.
+5. Paste your copied `griptape-nodes-library.json` path from earlier into the new item.
 6. Exit out of Settings. It will save automatically!
 7. Open up the **Libraries** dropdown on the left sidebar.
 8. Your newly registered library should appear! Drag and drop nodes to use them!
