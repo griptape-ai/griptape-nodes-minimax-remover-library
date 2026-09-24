@@ -6,6 +6,7 @@ from pathlib import Path
 
 from griptape_nodes.node_library.advanced_node_library import AdvancedNodeLibrary
 from griptape_nodes.node_library.library_registry import Library, LibrarySchema
+from griptape_nodes.retained_mode.griptape_nodes import GriptapeNodes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("minimax_remover_library")
@@ -23,6 +24,11 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
         """
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
+
+        # The submodule checkout below populates the execution environment, which only
+        # the worker imports from. The orchestrator never reaches it, so skip here.
+        if not GriptapeNodes.LibraryManager().is_worker:
+            return
 
         try:
             self._init_minimax_remover_submodule()
