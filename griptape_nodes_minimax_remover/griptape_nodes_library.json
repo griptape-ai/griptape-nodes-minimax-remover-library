@@ -1,6 +1,6 @@
 {
     "name": "MiniMax-Remover Library",
-    "library_schema_version": "0.3.0",
+    "library_schema_version": "0.12.0",
     "advanced_library_path": "minimax_remover_library_advanced.py",
     "metadata": {
         "author": "Your Name",
@@ -18,7 +18,8 @@
             "Computer Vision"
         ],
         "dependencies": {
-            "pip_dependencies": [
+            "pip_dependencies": [],
+            "pip_dependencies_exec": [
                 "torch==2.7.1",
                 "torchvision==0.22.1",
                 "diffusers==0.33.1",
