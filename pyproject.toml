@@ -1,6 +1,6 @@
 [project]
 name = "griptape-nodes-minimax-remover-library"
-version = "0.1.0"
+version = "0.3.0"
 description = "MiniMax-Remover integration for Griptape Nodes - AI-powered video object removal"
 authors = [
     {name = "Your Name", email = "you@example.com"}
