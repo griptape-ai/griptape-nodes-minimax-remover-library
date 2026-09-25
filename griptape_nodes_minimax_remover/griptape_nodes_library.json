@@ -1,12 +1,12 @@
 {
     "name": "MiniMax-Remover Library",
-    "library_schema_version": "0.3.0",
+    "library_schema_version": "0.12.0",
     "advanced_library_path": "minimax_remover_library_advanced.py",
     "metadata": {
         "author": "Your Name",
         "description": "MiniMax-Remover integration for Griptape Nodes - AI-powered video object removal using diffusion models",
-        "library_version": "0.2.0",
-        "engine_version": "0.75.0",
+        "library_version": "0.3.0",
+        "engine_version": "0.102.0",
         "tags": [
             "Griptape",
             "AI",
@@ -18,7 +18,8 @@
             "Computer Vision"
         ],
         "dependencies": {
-            "pip_dependencies": [
+            "pip_dependencies": [],
+            "pip_dependencies_exec": [
                 "torch==2.7.1",
                 "torchvision==0.22.1",
                 "diffusers==0.33.1",
@@ -36,8 +37,10 @@
                 "hydra-core>=1.3.0"
             ],
             "pip_install_flags": [
-                "--preview",
-                "--torch-backend=auto"
+                "--extra-index-url",
+                "https://download.pytorch.org/whl/cu128",
+                "--index-strategy",
+                "unsafe-best-match"
             ]
         },
         "resources": {

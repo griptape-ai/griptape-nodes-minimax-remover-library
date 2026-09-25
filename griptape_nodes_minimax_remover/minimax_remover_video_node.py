@@ -2,18 +2,12 @@
 
 import gc
 import logging
-import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any, Union
 
-import numpy as np
-import torch
-from diffusers import AutoencoderKLWan, UniPCMultistepScheduler
-from diffusers.utils import export_to_video, load_video
 from griptape.artifacts import VideoUrlArtifact
-from PIL import Image
 
 from griptape_nodes.exe_types.core_types import Parameter, ParameterMode
 from griptape_nodes.exe_types.node_types import BaseNode, ControlNode
@@ -26,16 +20,6 @@ from griptape_nodes.files.file import File
 from griptape_nodes.traits.slider import Slider
 
 logger = logging.getLogger(__name__)
-
-
-def get_best_device() -> torch.device:
-    """Get the best available device (CUDA, MPS, or CPU)."""
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    else:
-        return torch.device("cpu")
 
 
 class MinimaxRemoverVideoNodeParameters:
@@ -116,71 +100,20 @@ class MinimaxRemoverVideoNodeParameters:
         Downloads model weights from HuggingFace, imports custom modules from
         git submodule, and builds the pipeline.
         """
+        # Deferred: the execution module reaches torch and diffusers. Flat rather than relative
+        # because the engine loads a node module as a top-level module, with no parent package.
+        import minimax_remover_execution
+
         repo_id, revision = self._huggingface_repo_parameter.get_repo_revision()
 
         logger.info("Building MiniMax-Remover pipeline...")
         logger.info(f"Repository: {repo_id}, Revision: {revision}")
 
-        device = get_best_device()
-        dtype = torch.float16
-
-        try:
-            # Add submodule to sys.path at execution time
-            # LibraryImportContext isolates sys.path, so we must add it here
-            minimax_repo_path = str(Path(__file__).parent / "_minimax_remover_repo")
-            if minimax_repo_path not in sys.path:
-                sys.path.insert(0, minimax_repo_path)
-
-            # Import custom modules from submodule
-            from transformer_minimax_remover import Transformer3DModel
-            from pipeline_minimax_remover import Minimax_Remover_Pipeline
-
-            # Load model components from HuggingFace
-            # diffusers from_pretrained() handles downloading and caching automatically
-            logger.info(f"Loading models from {repo_id} (revision: {revision})...")
-
-            logger.info("Loading VAE...")
-            vae = AutoencoderKLWan.from_pretrained(
-                repo_id,
-                subfolder="vae",
-                revision=revision,
-                torch_dtype=dtype,
-            )
-
-            logger.info("Loading Transformer...")
-            transformer = Transformer3DModel.from_pretrained(
-                repo_id,
-                subfolder="transformer",
-                revision=revision,
-                torch_dtype=dtype,
-            )
-
-            logger.info("Loading Scheduler...")
-            scheduler = UniPCMultistepScheduler.from_pretrained(
-                repo_id,
-                subfolder="scheduler",
-                revision=revision,
-            )
-
-            # Build pipeline
-            logger.info("Building MiniMax-Remover pipeline...")
-            pipeline = Minimax_Remover_Pipeline(
-                transformer=transformer,
-                vae=vae,
-                scheduler=scheduler,
-            )
-
-            # Move to device
-            logger.info(f"Moving pipeline to device: {device}")
-            pipeline = pipeline.to(device)
-
-            logger.info("Pipeline loaded successfully!")
-            return pipeline
-
-        except Exception as e:
-            error_msg = f"Failed to build MiniMax-Remover pipeline: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            raise RuntimeError(error_msg) from e
+        return minimax_remover_execution.build_pipeline(
+            repo_id=repo_id,
+            revision=revision,
+            device=self._node.execution_device,
+        )
 
 
 class MinimaxRemoverVideoNode(ControlNode):
@@ -194,9 +127,6 @@ class MinimaxRemoverVideoNode(ControlNode):
     def __init__(self, **kwargs) -> None:
         """Initialize the MiniMax-Remover video node."""
         super().__init__(**kwargs)
-
-        # Ensure custom modules are available before creating parameters
-        self._ensure_minimax_modules_available()
 
         # Initialize parameters
         self.params = MinimaxRemoverVideoNodeParameters(self)
@@ -245,19 +175,6 @@ class MinimaxRemoverVideoNode(ControlNode):
         )
         self._output_file.add_parameter()
 
-    def _ensure_minimax_modules_available(self):
-        """Add _minimax_remover_repo to sys.path for lazy imports.
-
-        This allows importing the custom MiniMax-Remover modules
-        (transformer_minimax_remover.py and pipeline_minimax_remover.py)
-        from the git submodule.
-        """
-        minimax_repo_path = str(Path(__file__).parent / "_minimax_remover_repo")
-
-        if minimax_repo_path not in sys.path:
-            sys.path.insert(0, minimax_repo_path)
-            logger.debug(f"Added {minimax_repo_path} to sys.path")
-
     def validate_before_node_run(self) -> list[Exception] | None:
         """Validate inputs before processing."""
         errors = []
@@ -287,6 +204,13 @@ class MinimaxRemoverVideoNode(ControlNode):
 
     async def _process(self) -> None:
         """Internal processing implementation."""
+        # Deferred: these are execution-time packages. This method only ever runs where the
+        # execution environment is on sys.path, which is not the orchestrator.
+        import numpy as np
+        import torch
+        from diffusers.utils import export_to_video, load_video
+        from PIL import Image
+
         start_time = time.time()
 
         try:
@@ -427,7 +351,7 @@ class MinimaxRemoverVideoNode(ControlNode):
             del masks_tensor
             del output
             gc.collect()
-            if torch.cuda.is_available():
+            if self.execution_device == "cuda":
                 torch.cuda.empty_cache()
             self.log_params.append_to_logs("Memory cleaned up\n")
 
