@@ -18,15 +18,14 @@ class MinimaxRemoverLibraryAdvanced(AdvancedNodeLibrary):
     def before_library_nodes_loaded(self, library_data: LibrarySchema, library: Library) -> None:
         """Called before any nodes are loaded from the library.
 
-        This method handles submodule initialization. The pip packages are the engine's job:
-        it installs them from the manifest, and the execution set lands in an environment this
-        process cannot import from, so probing for them here would only ever report them missing.
+        This method handles submodule initialization. The pip packages are the engine's job: it
+        installs the manifest's execution set into `.venv-exec`.
         """
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
 
-        # The submodule checkout below populates the execution environment, which only
-        # the worker imports from. The orchestrator never reaches it, so skip here.
+        # Only `build_pipeline` imports the vendored modules, putting the checkout on `sys.path`
+        # as it goes, and it runs where nodes execute. The orchestrator has no use for the checkout.
         if not GriptapeNodes.LibraryManager().is_worker:
             return
 
