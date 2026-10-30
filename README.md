@@ -101,4 +101,4 @@ The Griptape Nodes integration code in this repository is licensed under the Apa
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks, changelog entries, and version bumps.
